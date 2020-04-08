@@ -8,16 +8,13 @@
 
 #include "handlepty.h"
 #include "common.h"
-#include "tiny_websockets_lib/include/tiny_websockets/client.hpp"
-#include "tiny_websockets_lib/include/tiny_websockets/message.hpp"
-#include "tiny_websockets_lib/include/tiny_websockets/internals/ws_common.hpp"
-#include <tiny_websockets/client.hpp>
-#include <tiny_websockets/server.hpp>
+#include "tiny_websockets/client.hpp"
+#include "tiny_websockets/server.hpp"
+
+#define SERVER_ADDR "wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi"
 
 using namespace websockets;
 
-int erre;
-int supererr = 0;
 enum state {
     S_ERROR = 0,
     S_INIT = 1,
@@ -31,7 +28,8 @@ pthread_mutex_t stateLock;
 unsigned state = S_INIT;
 WebsocketsClient client;
 
-void stateChange(unsigned newState) {
+void stateChange(unsigned newState)
+{
     pthread_mutex_lock(&stateLock);
     {
         state = newState;
@@ -40,12 +38,9 @@ void stateChange(unsigned newState) {
 }
 
 
-void onMessageCallback(WebsocketsMessage message) {
-    char risp[4096];
+void onMessageCallback(WebsocketsMessage message)
+{
     ttySend(message.data().c_str());
-    //execCommand(message.data().c_str(), risp, 4096);
-    //client.send(risp);
-
 }
 static void ttyread(char *msg)
 {
@@ -61,29 +56,16 @@ void onEventsCallback(WebsocketsEvent event, std::string data) {
     }
 }
 
-
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_vbrat_MainActivity_stringFromJNI(JNIEnv *env, jobject, int what) {
-    /*
-    char risp[2048];
-    execCommand("ls /system/app", risp, 2048);
-    execCommand("cd /system/app", risp, 2048);
-    execCommand("ls", risp, 2048);
-    execCommand("pwd", risp, 2048);
-*/
-
-    switch (state) // /data/data/com.example.vbrat/lib/libnative-lib.so
+    switch (state)
     {
         case S_INIT:
-            //FILE *pp = fopen("/data/data/com.example.vbrat/lib/libnative-lib.so", "")
-
             client.onMessage(onMessageCallback);
             client.onEvent(onEventsCallback);
-            //client.connect("wss://echo.websocket.org/");
-            client.connect(
-                    "wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi");
+            client.connect(SERVER_ADDR);
+
             if (pthread_mutex_init(&stateLock, NULL) != 0) {
-                //last_err.str = "MUTEX INIT ERR";
                 state = S_ERROR;
                 return env->NewStringUTF("MUTEX INIT ERR");
             }
@@ -109,7 +91,7 @@ Java_com_example_vbrat_MainActivity_stringFromJNI(JNIEnv *env, jobject, int what
             return env->NewStringUTF("RECONNECTING...");
             break;
         case S_DISCONNECTED:
-            //client.connect("wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi");
+            client.connect(SERVER_ADDR);
             stateChange(S_RECONNECTION);
             return env->NewStringUTF("DISCONNECTED...");
             break;

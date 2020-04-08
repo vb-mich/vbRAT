@@ -7,10 +7,6 @@
 #include "common.h"
 #include "handlepty.h"
 
-int _stdout;
-int _stderr;
-int _stdin;
-
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -34,22 +30,34 @@ typedef struct {
     pthread_t ttythread;
     on_ttyout cbOut;
     int ttyFD;
-    bool error;
-    char *errdesc;
+    int error;
+    char errdesc[256];
 } vbtty_t;
 
 bool ttyInit = false;
 vbtty_t vbTTY;
-//static int cmdfd;
 static pid_t pid;
 
-void die(const char *errstr, ...)
+void setError(const char *errstr, ...)
 {
+    pthread_mutex_lock(&vbTTY.errLock);
     va_list ap;
     va_start(ap, errstr);
-    vfprintf(stderr, errstr, ap);
+    vsnprintf(vbTTY.errdesc, 256, errstr, ap);
     va_end(ap);
-    exit(1);
+    pthread_mutex_lock(&vbTTY.errLock);
+}
+
+const char* getError()
+{
+    const char *ret;
+    pthread_mutex_lock(&vbTTY.errLock);
+    if(vbTTY.error == 0)
+        ret = NULL;
+    else
+        ret = vbTTY.errdesc;
+    pthread_mutex_unlock(&vbTTY.errLock);
+    return ret;
 }
 
 void sigchld(int a)
@@ -58,19 +66,33 @@ void sigchld(int a)
     pid_t p;
 
     if ((p = waitpid(pid, &stat, WNOHANG)) < 0)
-        die("waiting for pid %hd failed: %s\n", pid, strerror(errno));
+        setError("waiting for pid %hd failed: %s\n", pid, strerror(errno));
 
     if (pid != p)
         return;
 
     if (WIFEXITED(stat) && WEXITSTATUS(stat))
-        die("child exited with status %d\n", WEXITSTATUS(stat));
+        setError("child exited with status %d\n", WEXITSTATUS(stat));
     else if (WIFSIGNALED(stat))
-        die("child terminated due to signal %d\n", WTERMSIG(stat));
-    exit(0);
+        setError("child terminated due to signal %d\n", WTERMSIG(stat));
 }
 
-void execsh(char *cmd, char **args)
+void  sparse(char *linein, char **argv)
+{
+    char * const copy = strdup(linein);
+    char *line = copy;
+    while (*line != '\0') {       /* if not the end of line ....... */
+        while (*line == ' ' || *line == '\t' || *line == '\n')
+            *line++ = '\0';     /* replace white spaces with 0    */
+        *argv++ = line;          /* save the argument position     */
+        while (*line != '\0' && *line != ' ' &&
+               *line != '\t' && *line != '\n')
+            line++;             /* skip the argument until ...    */
+    }
+    *argv = NULL;                 /* mark the end of argument list  */
+}
+
+int execsh(char *cmd, char **args)
 {
     char *sh, *prog;
     const struct passwd *pw;
@@ -78,9 +100,10 @@ void execsh(char *cmd, char **args)
     errno = 0;
     if ((pw = getpwuid(getuid())) == NULL) {
         if (errno)
-            die("getpwuid: %s\n", strerror(errno));
+            setError("getpwuid: %s\n", strerror(errno));
         else
-            die("who are you?\n");
+            setError("who are you?\n");
+        _exit(1);
     }
 
     if ((sh = getenv("SHELL")) == NULL)
@@ -110,7 +133,8 @@ void execsh(char *cmd, char **args)
     signal(SIGALRM, SIG_DFL);
 
     execvp(prog, args);
-    _exit(1);
+
+    _exit(0);
 }
 
 int ttynew( char *cmd, char *out, char **args)
@@ -121,7 +145,7 @@ int ttynew( char *cmd, char *out, char **args)
     {
         iofd = (!strcmp(out, "-")) ? 1 : open(out, O_WRONLY | O_CREAT, 0666);
         if (iofd < 0) {
-            fprintf(stderr, "Error opening %s:%s\n", out, strerror(errno));
+            setError("Error opening %s:%s\n", out, strerror(errno));
             return -1;
         }
     }
@@ -131,16 +155,17 @@ int ttynew( char *cmd, char *out, char **args)
 
     switch (pid = fork()) {
         case -1:
-            die("fork failed: %s\n", strerror(errno));
+            setError("fork failed: %s\n", strerror(errno));
+            return -1;
             break;
         case 0:
             close(iofd);
-            setsid(); /* create a new process group */
-            dup2(s, 0);
-            dup2(s, 1);
-            dup2(s, 2);
+            setsid(); //create a new process group
+            dup2(s, STDIN_FILENO);
+            dup2(s, STDOUT_FILENO);
+            dup2(s, STDERR_FILENO);
             if (ioctl(s, TIOCSCTTY, NULL) < 0)
-                die("ioctl TIOCSCTTY failed: %s\n", strerror(errno));
+                setError("ioctl TIOCSCTTY failed: %s\n", strerror(errno));
             close(s);
             close(m);
             execsh(cmd, args);
@@ -155,26 +180,23 @@ int ttynew( char *cmd, char *out, char **args)
 
 void ttywriteraw(int ttyfd, const char *s, size_t n)
 {
-    fd_set wfd, rfd;
+    fd_set wfd;
     ssize_t r;
     size_t lim = 256;
 
     while (n > 0)
     {
         FD_ZERO(&wfd);
-        //FD_ZERO(&rfd);
         FD_SET(ttyfd, &wfd);
-        //FD_SET(cmdfd, &rfd);
 
         if (pselect(ttyfd+1, NULL, &wfd, NULL, NULL, NULL) < 0) // Check if we can write.
-        //if (pselect(ttyfd+1, &rfd, &wfd, NULL, NULL, NULL) < 0) // Check if we can write.
         {
             if (errno == EINTR)
                 continue;
-            die("select failed: %s\n", strerror(errno));
+            setError("select failed: %s\n", strerror(errno));
         }
         if ((r = write(ttyfd, s, (n < lim)? n : lim)) < 0)
-            die("write error on tty: %s\n", strerror(errno));
+            setError("write error on tty: %s\n", strerror(errno));
         if (r >= n)
             break; //All bytes have been written.
     }
@@ -187,7 +209,6 @@ void ttywrite(int ttyfd, const char *s, size_t n)
     while (n > 0) {
         if (*s == '\r') {
             next = s + 1;
-            //ttywriteraw(ttyfd, "\r\n", 2);
             ttywriteraw(ttyfd, "\r", 1);
         } else {
             next = (const char *)memchr((void *)s, '\r', n);
@@ -239,11 +260,9 @@ static void ttyThread(vbtty_t *ttyS)
 
 int startTTY(on_ttyout cb)
 {
-    if(!ttyInit) {
-        vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx",NULL);
-        dup2(_stdout, STDOUT_FILENO);
-        dup2(_stderr, STDERR_FILENO);
-        dup2(_stdin, STDIN_FILENO);
+    if(!ttyInit)
+    {
+        vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx", NULL);
         ttyInit = true;
     }
 
@@ -273,51 +292,3 @@ int ttySend(const char *cmd)
     pthread_mutex_unlock(&vbTTY.ttyLock);
     return 0;
 }
-
-/*
-int execCommand(const char *cmd, char *buf, uint16_t bufsize)
-{
-    int master=0;
-    if(!master) {
-        ttynew("/system/bin/sh", "/dev/ptmx",NULL);
-        dup2(_stdout, STDOUT_FILENO);
-        dup2(_stderr, STDERR_FILENO);
-        dup2(_stdin, STDIN_FILENO);
-    }
-    else
-        vbTTY.ttyFD = master;
-
-    char *command = (char *)malloc(strlen(cmd)+1);
-    strcpy(command, cmd);
-
-    strcat(command, "\r");
-    fd_set rfds;
-    struct timeval tv;// { 0, 0 };
-    ssize_t size = 0;
-    size_t count = 0;
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
-
-    memset(buf, 0, bufsize);
-    //const char *ripe = "casd /system\r";
-    ttywrite(command, strlen(command));
-
-    // Child process terminated; we flush the output and restore stdout.
-    fsync(STDOUT_FILENO);
-    fsync(STDERR_FILENO);
-    fsync(STDIN_FILENO);
-
-    FD_ZERO(&rfds);
-    FD_SET(master, &rfds);
-    if (select(master + 1, &rfds, NULL, NULL, &tv))
-    {
-        size = read(master, buf, bufsize);
-        buf[size] = '\0';
-    } else
-        sprintf(buf, "terminal not ready\n");
-
-    LOGI("ret: %s", buf);
-
-    return count;
-}
-*/
