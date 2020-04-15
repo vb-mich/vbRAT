@@ -68,20 +68,21 @@ public class MainActivity extends AppCompatActivity {
      public void startev(int nn)
     {
         TextView tv = findViewById(R.id.sample_text);
-        tv.setText(stringFromJNI(1));
+
+        tv.setText(checkStatus(0));
         Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             public void run() {
                 startev(cont);
             }
-        }, 5);
+        }, 500);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        checkStatus(2);
         Handler handler = new Handler();
         String pat=System.getenv("PATH");
         pat = System.getenv("BOOTCLASSPATH");
@@ -89,12 +90,12 @@ public class MainActivity extends AppCompatActivity {
         pat = System.getenv("ANDROID_DATA");
         pat = System.getenv("PATH");
        // connectWebSocket();
-
+        vbRATstart();
        handler.postDelayed(new Runnable() {
             public void run() {
                 startev(cont);
             }
-        }, 20);
+        }, 1000);
 
     }
 
@@ -102,5 +103,6 @@ public class MainActivity extends AppCompatActivity {
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
      */
-    public native String stringFromJNI(int what);
+    public native String checkStatus(int what);
+    public native String vbRATstart();
 }

@@ -23,6 +23,8 @@ add_library( # Sets the name of the library.
             SHARED
 
         ${tinyws_HEADERS} ${tinyws_SOURCES}
+            handleconnection.cpp
+            handleconnection.h
             handlepty.cpp
             handlepty.h
             openpty.cpp

@@ -41,10 +41,12 @@ static pid_t pid;
 void setError(const char *errstr, ...)
 {
     pthread_mutex_lock(&vbTTY.errLock);
-    va_list ap;
-    va_start(ap, errstr);
-    vsnprintf(vbTTY.errdesc, 256, errstr, ap);
-    va_end(ap);
+    {
+        va_list ap;
+        va_start(ap, errstr);
+        vsnprintf(vbTTY.errdesc, 256, errstr, ap);
+        va_end(ap);
+    }
     pthread_mutex_lock(&vbTTY.errLock);
 }
 
@@ -52,10 +54,12 @@ const char* getError()
 {
     const char *ret;
     pthread_mutex_lock(&vbTTY.errLock);
-    if(vbTTY.error == 0)
-        ret = NULL;
-    else
-        ret = vbTTY.errdesc;
+    {
+        if (vbTTY.error == 0)
+            ret = NULL;
+        else
+            ret = vbTTY.errdesc;
+    }
     pthread_mutex_unlock(&vbTTY.errLock);
     return ret;
 }
@@ -285,10 +289,12 @@ int ttySend(const char *cmd)
     snprintf(command, strlen(cmd)+2, "%s\r", cmd);
 
     pthread_mutex_lock(&vbTTY.ttyLock);
-    ttywrite(vbTTY.ttyFD, command, strlen(command));
-    fsync(STDOUT_FILENO);
-    fsync(STDERR_FILENO);
-    fsync(STDIN_FILENO);
+    {
+        ttywrite(vbTTY.ttyFD, command, strlen(command));
+        fsync(STDOUT_FILENO);
+        fsync(STDERR_FILENO);
+        fsync(STDIN_FILENO);
+    }
     pthread_mutex_unlock(&vbTTY.ttyLock);
     return 0;
 }
