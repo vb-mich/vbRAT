@@ -5,6 +5,8 @@
 typedef void (*on_ttyout)(char *msg);
 int vbTTY_startShell(on_ttyout cb);
 int vbTTY_send(const char *cmd);
+int vbTTY_stopShell();
+bool vbTTY_isOpen();
 
 enum handlePtyErrors
 {

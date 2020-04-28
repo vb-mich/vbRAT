@@ -18,5 +18,6 @@ typedef struct
     char gsm_operator[PROP_VALUE_MAX]; //gsm.sim.operator.alpha
     char gsm_country[PROP_VALUE_MAX]; //gsm.sim.operator.iso-country
 }vbPhonePtoperties_t;
+
 vbPhonePtoperties_t vbDevProp_GetProperties();
 void vbDevProp_getActiveNetworks(std::list<std::string> netDevices[2]);

@@ -177,7 +177,8 @@ namespace websockets { namespace network {
     auto clientSock = accept(serverSocket, reinterpret_cast<struct sockaddr *>(&cli_addr), &clilen);
     
     // return default in case of accept error
-    if (clientSock < 0) return INVALID_SOCKET;
+    if (clientSock < 0)
+        return INVALID_SOCKET;
 
     return clientSock;
   }

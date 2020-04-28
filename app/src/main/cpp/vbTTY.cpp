@@ -32,6 +32,7 @@ typedef struct {
     int ttyFD;
     int error;
     char errdesc[256];
+    bool ttyLive;
 } vbtty_t;
 
 bool ttyInit = false;
@@ -79,21 +80,6 @@ void sigchld(int a)
         setError("child exited with status %d\n", WEXITSTATUS(stat));
     else if (WIFSIGNALED(stat))
         setError("child terminated due to signal %d\n", WTERMSIG(stat));
-}
-
-void  sparse(char *linein, char **argv)
-{
-    char * const copy = strdup(linein);
-    char *line = copy;
-    while (*line != '\0') {       /* if not the end of line ....... */
-        while (*line == ' ' || *line == '\t' || *line == '\n')
-            *line++ = '\0';     /* replace white spaces with 0    */
-        *argv++ = line;          /* save the argument position     */
-        while (*line != '\0' && *line != ' ' &&
-               *line != '\t' && *line != '\n')
-            line++;             /* skip the argument until ...    */
-    }
-    *argv = NULL;                 /* mark the end of argument list  */
 }
 
 int execsh(char *cmd, char **args)
@@ -233,53 +219,86 @@ static void ttyThread(vbtty_t *ttyS)
     tv.tv_usec = 0;
     const int bufsize = 512;
     char buf[512];
+    bool shutdown=false;
     memset(buf, 0, bufsize);
     while(true) //keep reading from ttyfd
     {
         pthread_mutex_lock(&ttyS->ttyLock);
         {
-            FD_ZERO(&rfds);
-            FD_SET(ttyS->ttyFD, &rfds);
-            if (select(ttyS->ttyFD + 1, &rfds, NULL, NULL, &tv))
+            if(ttyS->ttyLive)
             {
-                readed = read(ttyS->ttyFD, buf, bufsize-1);
-                if(readed>0)
+                FD_ZERO(&rfds);
+                FD_SET(ttyS->ttyFD, &rfds);
+                if (select(ttyS->ttyFD + 1, &rfds, NULL, NULL, &tv))
                 {
-                    buf[bufsize-1] = '\0';
-                    ttyS->cbOut(buf);
-                    memset(buf, 0, bufsize);
+                    readed = read(ttyS->ttyFD, buf, bufsize - 1);
+                    if (readed > 0)
+                    {
+                        buf[bufsize - 1] = '\0';
+                        ttyS->cbOut(buf);
+                        memset(buf, 0, bufsize);
+                    }
                 }
+                //else sprintf(buf, "terminal not ready\n");
             }
-            //else sprintf(buf, "terminal not ready\n");
+            else
+                shutdown = true;
         }
         pthread_mutex_unlock(&ttyS->ttyLock);
 
-        if(ttyS->ttythread==0)
+        if(shutdown)
             break;
-
     }
     pthread_exit(0);
 }
 
+bool vbTTY_isOpen()
+{
+    bool ret;
+    pthread_mutex_lock(&vbTTY.ttyLock);
+    {
+        ret = vbTTY.ttyLive;
+    }
+    pthread_mutex_unlock(&vbTTY.ttyLock);
+    return ret;
+}
+
+int vbTTY_stopShell()
+{
+    pthread_mutex_lock(&vbTTY.ttyLock);
+    {
+        vbTTY.ttyLive = false;
+    }
+    pthread_mutex_unlock(&vbTTY.ttyLock);
+    kill(pid, SIGKILL);
+    pthread_join(vbTTY.ttythread, NULL);
+    return 0;
+};
 
 int vbTTY_startShell(on_ttyout cb)
 {
     if(!ttyInit)
     {
         vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx", NULL);
+        vbTTY.ttyLive = 1;
         ttyInit = true;
     }
-
-    vbTTY.cbOut=(on_ttyout)cb;
-    if (pthread_mutex_init(&vbTTY.ttyLock, NULL) != 0) {
-        printf("ttymutex init fail: %s\n", strerror(errno));
-        return -1;
+    if(!vbTTY.ttyLive)
+    {
+        vbTTY.ttyLive = 1;
+        vbTTY.cbOut = (on_ttyout) cb;
+        if (pthread_mutex_init(&vbTTY.ttyLock, NULL) != 0)
+        {
+            printf("ttymutex init fail: %s\n", strerror(errno));
+            return -1;
+        }
+        if (pthread_mutex_init(&vbTTY.errLock, NULL) != 0)
+        {
+            printf("errmutex init fail: %s\n", strerror(errno));
+            return -1;
+        }
+        pthread_create(&vbTTY.ttythread, NULL, (void *(*)(void *)) ttyThread, &vbTTY);
     }
-    if (pthread_mutex_init(&vbTTY.errLock, NULL) != 0) {
-        printf("errmutex init fail: %s\n", strerror(errno));
-        return -1;
-    }
-    pthread_create(&vbTTY.ttythread, NULL, (void *(*)(void *))ttyThread, &vbTTY);
     return 0;
 }
 

