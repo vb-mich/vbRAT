@@ -1,8 +1,4 @@
-# For more information about using CMake with Android Studio, read the
-# documentation: https://d.android.com/studio/projects/add-native-code.html
-
-# Sets the minimum version of CMake required to build the native library.
-
+#vbRAT CMakeList
 cmake_minimum_required(VERSION 3.4.1)
 
 include_directories(openssl/include)
@@ -22,24 +18,23 @@ add_library( # Sets the name of the library.
             native-lib
             SHARED
 
-        ${tinyws_HEADERS} ${tinyws_SOURCES}
-            handleconnection.cpp
-            handleconnection.h
-            handlepty.cpp
-            handlepty.h
+            ${tinyws_HEADERS} ${tinyws_SOURCES}
+            vbConnection.cpp
+            vbConnection.h
+            vbTTY.cpp
+            vbTTY.h
+            vbDeviceProperties.cpp
+            vbDeviceProperties.h
             openpty.cpp
             openpty.h
             common.h
-            native-lib.cpp )
-add_definitions(-D__linux__)
-find_library( # Sets the name of the path variable.
-              log-lib
-              # Specifies the name of the NDK library that
-              # you want CMake to locate.
-              log )
+            vbRAT.cpp)
 
-#add_library( libcurl STATIC IMPORTED )
-#set_target_properties( libcurl PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/curl/${ANDROID_ABI}/libcurl.a)
+add_definitions(-D__linux__)
+add_definitions(-Werror=return-type) #do not remove. I lost 3 hours trying to figure out a SIGILL due to a non returning fuction
+find_library(
+              log-lib
+              log )
 
 add_library( libssl STATIC IMPORTED )
 set_target_properties( libssl PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/openssl/${ANDROID_ABI}/libssl.a)
@@ -51,3 +46,5 @@ target_link_libraries( # Specifies the target library.
         libssl
         libcrypto
         ${log-lib} )
+##            && ./configure --quiet CPPFLAGS=-DPIC CFLAGS=-fPIC CXXFLAGS=-fPIC LDFLAGS=-fPIC "${ANDROID_BUILD_OPTS[@]}" --disable-soname-versions \
+#        && ./configure --quiet CPPFLAGS=-DPIC CFLAGS=-fPIC CXXFLAGS=-fPIC LDFLAGS=-fPIC "${ANDROID_BUILD_OPTS[@]}" ${CURVE} --without-docs \

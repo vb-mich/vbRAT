@@ -5,7 +5,7 @@
 #include "openpty.h"
 #include <string>
 #include "common.h"
-#include "handlepty.h"
+#include "vbTTY.h"
 
 #include <errno.h>
 #include <dirent.h>
@@ -262,7 +262,7 @@ static void ttyThread(vbtty_t *ttyS)
 }
 
 
-int startTTY(on_ttyout cb)
+int vbTTY_startShell(on_ttyout cb)
 {
     if(!ttyInit)
     {
@@ -283,7 +283,7 @@ int startTTY(on_ttyout cb)
     return 0;
 }
 
-int ttySend(const char *cmd)
+int vbTTY_send(const char *cmd)
 {
     char *command = (char *)malloc(strlen(cmd)+2);
     snprintf(command, strlen(cmd)+2, "%s\r", cmd);

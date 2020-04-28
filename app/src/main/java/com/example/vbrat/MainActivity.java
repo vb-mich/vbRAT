@@ -1,21 +1,29 @@
 package com.example.vbrat;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.TextView;
 import android.os.Handler;
+
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
+
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
 public class MainActivity extends AppCompatActivity {
-
     WebSocketClient mWebSocketClient;
+
     private void connectWebSocket() {
+
         URI uri;
         try {
             uri = new URI("wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi");
@@ -37,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        TextView textView = (TextView)findViewById(R.id.sample_text);
+                        TextView textView = (TextView) findViewById(R.id.sample_text);
                         textView.setText(textView.getText() + "\n" + message);
                         mWebSocketClient.send(message);
                     }
@@ -57,16 +65,16 @@ public class MainActivity extends AppCompatActivity {
         mWebSocketClient.connect();
     }
 
-    // Used to load the 'native-lib' library on application startup.
     static {
+        System.loadLibrary("c++_shared");
         System.loadLibrary("native-lib");
     }
+
     //private TextView tv;
     private int cont = 0;
 
 
-     public void startev(int nn)
-    {
+    public void startev(int nn) {
         TextView tv = findViewById(R.id.sample_text);
 
         tv.setText(checkStatus(0));
@@ -80,18 +88,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        checkStatus(2);
+        //checkStatus(2);
         Handler handler = new Handler();
         String pat=System.getenv("PATH");
         pat = System.getenv("BOOTCLASSPATH");
         pat = System.getenv("ANDROID_ROOT");
         pat = System.getenv("ANDROID_DATA");
         pat = System.getenv("PATH");
-       // connectWebSocket();
+        //connectWebSocket();
         vbRATstart();
-       handler.postDelayed(new Runnable() {
+        handler.postDelayed(new Runnable() {
             public void run() {
                 startev(cont);
             }
@@ -104,5 +113,5 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String checkStatus(int what);
-    public native String vbRATstart();
+    public native int vbRATstart();
 }
