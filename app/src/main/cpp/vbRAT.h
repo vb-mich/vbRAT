@@ -6,4 +6,5 @@
 #define VBRAT_VBRAT_H
 void vbRAT_connected();
 void vbRAT_messageReceived(const char* buf, int len);
+const char* vbTTY_getError();
 #endif //VBRAT_VBRAT_H

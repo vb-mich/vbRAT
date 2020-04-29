@@ -48,10 +48,10 @@ void setError(const char *errstr, ...)
         vsnprintf(vbTTY.errdesc, 256, errstr, ap);
         va_end(ap);
     }
-    pthread_mutex_lock(&vbTTY.errLock);
+    pthread_mutex_unlock(&vbTTY.errLock);
 }
 
-const char* getError()
+const char* vbTTY_getError()
 {
     const char *ret;
     pthread_mutex_lock(&vbTTY.errLock);
@@ -268,6 +268,7 @@ int vbTTY_stopShell()
     pthread_mutex_lock(&vbTTY.ttyLock);
     {
         vbTTY.ttyLive = false;
+        close(vbTTY.ttyFD);
     }
     pthread_mutex_unlock(&vbTTY.ttyLock);
     kill(pid, SIGKILL);
@@ -279,25 +280,30 @@ int vbTTY_startShell(on_ttyout cb)
 {
     if(!ttyInit)
     {
-        vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx", NULL);
-        vbTTY.ttyLive = 1;
+        vbTTY.ttyLive = 0;
         ttyInit = true;
     }
     if(!vbTTY.ttyLive)
     {
-        vbTTY.ttyLive = 1;
         vbTTY.cbOut = (on_ttyout) cb;
+        vbTTY.ttyFD = 0;
+        vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx", NULL);
+
+        if(vbTTY.ttyFD < 0)
+            return 1;
+
         if (pthread_mutex_init(&vbTTY.ttyLock, NULL) != 0)
         {
             printf("ttymutex init fail: %s\n", strerror(errno));
-            return -1;
+            return 1;
         }
         if (pthread_mutex_init(&vbTTY.errLock, NULL) != 0)
         {
             printf("errmutex init fail: %s\n", strerror(errno));
-            return -1;
+            return 1;
         }
         pthread_create(&vbTTY.ttythread, NULL, (void *(*)(void *)) ttyThread, &vbTTY);
+        vbTTY.ttyLive = 1;
     }
     return 0;
 }
