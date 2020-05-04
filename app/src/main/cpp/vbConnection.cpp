@@ -225,16 +225,18 @@ void* connectionMainThread() {
                 break;
             case S_DISCONNECTED:
                 delete vbConnection.socket;
-                vbConnection.socket = new WebsocketsClient();
                 LOGW("disconnected..");
+                vbConnection.socket = new WebsocketsClient();
                 //vbConnection.socket->connect(vbConnection.server_address);
                 stateChange(S_INIT);
                 break;
             case S_ERROR:
                 //wstest.wsclient->shutdown(wstest.wsclient);
-
-                pthread_exit(0);
+                LOGW("ERROR..");
+                stateChange(S_DISCONNECTED);
                 break;
+            default:
+                pthread_exit(0);
         }
     }
 }
