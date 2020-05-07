@@ -13,12 +13,18 @@ file(GLOB_RECURSE tinyws_HEADERS
         "tiny_websockets_lib/include/*.h"
         "tiny_websockets_lib/include/*.hpp"
         )
-
+file(GLOB_RECURSE json_SOURCES
+        "json/*.cpp"
+        )
+file(GLOB_RECURSE json_HEADERS
+        "json/*.h"
+        )
 add_library( # Sets the name of the library.
             native-lib
             SHARED
 
             ${tinyws_HEADERS} ${tinyws_SOURCES}
+            ${json_HEADERS} ${json_SOURCES}
             vbConnection.cpp
             vbConnection.h
             vbTTY.cpp

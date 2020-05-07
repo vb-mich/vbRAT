@@ -24,6 +24,7 @@
 #include <pwd.h>
 #include <pthread.h>
 
+
 typedef struct {
     pthread_mutex_t ttyLock;
     pthread_mutex_t errLock;
@@ -37,7 +38,7 @@ typedef struct {
 
 bool ttyInit = false;
 vbtty_t vbTTY;
-static pid_t pid;
+static pid_t pidp;
 
 void setError(const char *errstr, ...)
 {
@@ -70,10 +71,10 @@ void sigchld(int a)
     int stat;
     pid_t p;
 
-    if ((p = waitpid(pid, &stat, WNOHANG)) < 0)
-        setError("waiting for pid %hd failed: %s\n", pid, strerror(errno));
+    if ((p = waitpid(pidp, &stat, WNOHANG)) < 0)
+        setError("waiting for pid %hd failed: %s\n", pidp, strerror(errno));
 
-    if (pid != p)
+    if (pidp != p)
         return;
 
     if (WIFEXITED(stat) && WEXITSTATUS(stat))
@@ -143,7 +144,7 @@ int ttynew( char *cmd, char *out, char **args)
     if (openpty(&m, &s, NULL, NULL, NULL) < 0)
         return -1;
 
-    switch (pid = fork()) {
+    switch (pidp = fork()) {
         case -1:
             setError("fork failed: %s\n", strerror(errno));
             return -1;
@@ -271,7 +272,7 @@ int vbTTY_stopShell()
         close(vbTTY.ttyFD);
     }
     pthread_mutex_unlock(&vbTTY.ttyLock);
-    kill(pid, SIGKILL);
+    kill(pidp, SIGKILL);
     pthread_join(vbTTY.ttythread, NULL);
     return 0;
 };

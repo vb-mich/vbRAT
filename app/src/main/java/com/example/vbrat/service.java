@@ -14,16 +14,16 @@ public class service extends Service {
     }
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        vbRATstart();
+        //vbRATstart(getApplicationInfo().dataDir);
         return START_STICKY;
     }
     @Override
     public void onDestroy() {
         super.onDestroy();
-        vbRATstop();
+        //vbRATstop();
     }
 
-    public native int vbRATstart();
+    public native int vbRATstart(String datadir);
     public native int vbRATstop();
 }
 

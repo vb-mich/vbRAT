@@ -84,7 +84,7 @@ int32_t vbConnection_Connect(const char *address)
             return 0;
         }
     }
-    return 1;
+    return 0;
 }
 
 vbConnection_error vbConnection_getError()

