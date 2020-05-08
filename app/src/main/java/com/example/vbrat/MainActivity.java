@@ -21,12 +21,20 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.FileSystem;
+import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
+    @Override
+    public void onResume(){
+        super.onResume();
+        Log.e("VBRESUME", "onResume: RESUMED" );
+
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -52,9 +60,9 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        startService(new Intent(this, BackgroundService.class));
+        //startService(new Intent(this, BackgroundService.class));
 
-        //startService(new Intent(MainActivity.this,service.class));
+        startService(new Intent(MainActivity.this,service.class));
         moveTaskToBack(true);
 
     }

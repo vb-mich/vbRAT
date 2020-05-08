@@ -194,8 +194,8 @@ void vbRAT_messageReceived(const char* buf, int len)
 //Java_com_example_vbrat_MainActivity_vbRATstart(JNIEnv *env, jobject MainActivity)
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_example_vbrat_BackgroundService_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
-//Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
+//Java_com_example_vbrat_BackgroundService_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
+Java_com_example_vbrat_service_vbRATstart(JNIEnv *env, jobject MainActivity, jstring datadir)
 {
     LOGW("Started..");
     penv=env;
@@ -210,8 +210,8 @@ Java_com_example_vbrat_BackgroundService_vbRATstart(JNIEnv *env, jobject MainAct
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_example_vbrat_BackgroundService_vbRATstop(JNIEnv *env, jobject MainActivity)
-//Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
+//Java_com_example_vbrat_BackgroundService_vbRATstop(JNIEnv *env, jobject MainActivity)
+Java_com_example_vbrat_service_vbRATstop(JNIEnv *env, jobject MainActivity)
 {
     LOGW("Stopped..");
     vbConnection_Send("~Getting disconnected...");
@@ -222,9 +222,11 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_vbrat_BackgroundService_vbRATCheckStatus(JNIEnv *env, jobject MainActivity)
 {
     vbConnection_getError();
+
     switch(vbConnection_getState())
     {
         case S_CONNECTED:
+            LOGW("CONNECTED..");
             return env->NewStringUTF("CONNECTED...");
             break;
         case S_INIT:
@@ -232,12 +234,15 @@ Java_com_example_vbrat_BackgroundService_vbRATCheckStatus(JNIEnv *env, jobject M
             break;
         case S_RECONNCTING:
         case S_CONNECTING:
+            LOGW("CONNECTING..");
             return env->NewStringUTF("CONNECTING...");
             break;
         case S_DISCONNECTED:
+            LOGW("DISCONNECTED..");
             return env->NewStringUTF("DISCONNECTED...");
             break;
         case S_ERROR:
+            LOGW("ERROR....");
             return env->NewStringUTF("ERROR...");
             break;
         default:

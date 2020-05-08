@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "vbConnection.h"
 #include "vbTTY.h"
@@ -24,7 +25,9 @@ typedef struct {
     pthread_mutex_t stateLock;
     pthread_mutex_t socketLock;
     pthread_mutex_t errorLock;
+    clock_t before;
     vbConnection_error lastError = NO_ERRORS;
+    bool checkConn = false;
     pthread_t keepAliveT;
     pthread_t mainT;
     vbConnection_state state = S_TOINIZIALIZE;
@@ -127,6 +130,7 @@ int errorSet(vbConnection_error err)
 
 void keepAliveThread(WebsocketsClient *cli)
 {
+
     while(true)
     {
         if(vbConnection_getState()==255)
@@ -135,10 +139,16 @@ void keepAliveThread(WebsocketsClient *cli)
         {
             if(vbConnection_getState()==S_CONNECTED) //yes we might have been locked for a while, so we need to double check about the state
             if (cli->available())
-                vbConnection.socket->send("~p");                //send something in order to keep the connection open
+            {
+                //vbConnection.socket->send("~p");//send something in order to keep the connection open
+
+                vbConnection.socket->send("~c");//send something in order to keep the connection open
+                vbConnection.checkConn = true;
+                vbConnection.before = clock();
+            }
         }
         pthread_mutex_unlock(&vbConnection.socketLock);
-        sleep(10);
+        sleep(12);
     }
 }
 
@@ -164,8 +174,12 @@ vbConnection_state vbConnection_getState()
 
 void onMessageCallback(WebsocketsMessage message) //TODO decoupling for threadsafety
 {
-    if(strcmp(message.data().c_str(), "~p"))
+    if(strcmp(message.data().c_str(), "~c"))
         vbRAT_messageReceived(message.rawData().c_str(), message.length());
+    else
+    {
+        vbConnection.checkConn = false;
+    }
        // vbConnection.onMessageCB(message.rawData().c_str(), message.length());
     //ttySend(message.data().c_str());
 }
@@ -194,8 +208,18 @@ vbConnection_error vbConnection_Send(const char *msg)
     return NO_ERRORS;
 }
 
+
 void* connectionMainThread() {
+    int msec = 0, trigger = 10000; /* 10ms */
     while(true) {
+        clock_t difference = clock() - vbConnection.before;
+        msec = difference * 1000 / CLOCKS_PER_SEC;
+        if((msec > trigger) && vbConnection.checkConn)
+        {
+            stateChange(S_DISCONNECTED);
+            vbConnection.checkConn = false;
+            LOGW("triggerfail..");
+        }
         switch (vbConnection.state)
         {
             case S_INIT:
