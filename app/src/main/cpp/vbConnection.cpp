@@ -235,7 +235,7 @@ void* connectionMainThread() {
             case S_CONNECTING:
                 if (vbConnection.socket->available())
                 {
-                    LOGW("connected..");
+                    //LOGW("connected..");
                     stateChange(S_CONNECTED);
                 }
                 break;

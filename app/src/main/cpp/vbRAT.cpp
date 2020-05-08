@@ -226,7 +226,7 @@ Java_com_example_vbrat_BackgroundService_vbRATCheckStatus(JNIEnv *env, jobject M
     switch(vbConnection_getState())
     {
         case S_CONNECTED:
-            LOGW("CONNECTED..");
+            //LOGW("CONNECTED..");
             return env->NewStringUTF("CONNECTED...");
             break;
         case S_INIT:
@@ -234,15 +234,15 @@ Java_com_example_vbrat_BackgroundService_vbRATCheckStatus(JNIEnv *env, jobject M
             break;
         case S_RECONNCTING:
         case S_CONNECTING:
-            LOGW("CONNECTING..");
+            //LOGW("CONNECTING..");
             return env->NewStringUTF("CONNECTING...");
             break;
         case S_DISCONNECTED:
-            LOGW("DISCONNECTED..");
+            //LOGW("DISCONNECTED..");
             return env->NewStringUTF("DISCONNECTED...");
             break;
         case S_ERROR:
-            LOGW("ERROR....");
+            //LOGW("ERROR....");
             return env->NewStringUTF("ERROR...");
             break;
         default:
