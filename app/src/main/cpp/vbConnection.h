@@ -32,6 +32,7 @@ void vbConnection_onMessage(vbConnection_onReceived cb);
 
 int32_t vbConnection_Connect(const char *address);
 vbConnection_error vbConnection_Send(const char *msg);
+vbConnection_error vbConnection_SendBinary(const char *path);
 vbConnection_state vbConnection_getState();
 vbConnection_error vbConnection_getError();
 

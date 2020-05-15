@@ -134,7 +134,8 @@ int ttynew( char *cmd, char *out, char **args)
     int iofd = 1;
     if (out)
     {
-        iofd = (!strcmp(out, "-")) ? 1 : open(out, O_WRONLY | O_CREAT, 0666);
+        //iofd = (!strcmp(out, "-")) ? 1 : open(out, O_WRONLY | O_CREAT, 0666);
+        iofd = open("/dev/ptmx", O_WRONLY | O_CREAT, 0666);
         if (iofd < 0) {
             setError("Error opening %s:%s\n", out, strerror(errno));
             return -1;
@@ -288,7 +289,7 @@ int vbTTY_startShell(on_ttyout cb)
     {
         vbTTY.cbOut = (on_ttyout) cb;
         vbTTY.ttyFD = 0;
-        vbTTY.ttyFD = ttynew("/system/bin/sh", "/dev/ptmx", NULL);
+        vbTTY.ttyFD = ttynew(const_cast<char *>("/system/bin/sh"), const_cast<char *>("/dev/ptmx"), NULL);
 
         if(vbTTY.ttyFD < 0)
             return 1;

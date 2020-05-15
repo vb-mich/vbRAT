@@ -203,8 +203,42 @@ void onEventsCallback(WebsocketsEvent event, std::string data) {
 vbConnection_error vbConnection_Send(const char *msg)
 {
     pthread_mutex_lock(&vbConnection.socketLock);
+    //vbConnection.socket.sen
     vbConnection.socket->send(msg);
     pthread_mutex_unlock(&vbConnection.socketLock);
+    return NO_ERRORS;
+}
+
+
+vbConnection_error vbConnection_SendBinary(const char *path)
+{
+    char *source = NULL;
+    FILE *fp = fopen("/system/bin/bu", "r");
+    if (fp != NULL) {
+        /* Go to the end of the file. */
+        if (fseek(fp, 0L, SEEK_END) == 0) {
+            /* Get the size of the file. */
+            long bufsize = ftell(fp);
+            if (bufsize == -1) { /* Error */ }
+
+            /* Allocate our buffer to that size. */
+            source = static_cast<char *>(malloc(sizeof(char) * (bufsize + 1)));
+
+            /* Go back to the start of the file. */
+            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+
+            /* Read the entire file into memory. */
+            size_t newLen = fread(source, sizeof(char), bufsize, fp);
+            if ( ferror( fp ) != 0 ) {
+                fputs("Error reading file", stderr);
+            } else {
+                source[newLen++] = '\0'; /* Just to be safe. */
+            }
+        }
+        fclose(fp);
+    }
+
+    free(source); /* Don't forget to call free() later! */
     return NO_ERRORS;
 }
 
